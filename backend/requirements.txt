@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+langchain
+langchain-community
+langchain-huggingface
+faiss-cpu
+sentence-transformers
+pydantic
+python-dotenv
+python-multipart
+pypdf
+langchain-text-splitters
+chromadb 
+langchain-chroma
+langchain_huggingface
+langchain-openai
