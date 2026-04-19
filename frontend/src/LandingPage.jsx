@@ -1,6 +1,7 @@
 // src/LandingPage.jsx
 import React from 'react';
 import { Database, Zap, BrainCircuit, FileText, Search, ArrowRight, MessageSquareMore, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 // --- STYLES (Color Palette) ---
 const colors = {
@@ -86,9 +87,11 @@ const LandingPage = ({ onGetStarted }) => {
             <div style={{ backgroundColor: colors.vibrantBlue, padding: '8px', borderRadius: '12px' }}><BrainCircuit size={24}/></div>
             RAG Insight AI
         </div>
-        <button style={{...styles.primaryBtn, padding: '10px 20px', fontSize: '0.9rem'}} onMouseEnter={(e) => handleBtnHover(e, true)} onMouseLeave={(e) => handleBtnHover(e, false)} onClick={onGetStarted}>
-            Launch Chat <ArrowRight size={18} />
-        </button>
+        <Link to="/login" style={{ textDecoration: 'none' }}>
+            <button style={{...styles.primaryBtn, padding: '10px 20px', fontSize: '0.9rem'}} onMouseEnter={(e) => handleBtnHover(e, true)} onMouseLeave={(e) => handleBtnHover(e, false)} onClick={onGetStarted}>
+                Launch Chat <ArrowRight size={18} />
+            </button>
+        </Link>
       </header>
 
       {/* --- HERO SECTION --- */}
@@ -102,9 +105,11 @@ const LandingPage = ({ onGetStarted }) => {
         <p style={{ fontSize: '1.2rem', color: colors.textDim, maxWidth: '700px', lineHeight: '1.6', margin: '0 0 40px 0' }}>
             Stop wasting hours searching. RAG Insight AI analyze your documents (PDF, Text) instantly. Chat directly with your data and get accurate, context-aware answers.
         </p>
-        <button style={{...styles.primaryBtn, fontSize: '1.1rem'}} onMouseEnter={(e) => handleBtnHover(e, true)} onMouseLeave={(e) => handleBtnHover(e, false)} onClick={onGetStarted}>
-            Get Started Free <ArrowRight size={20} />
-        </button>
+        <Link to="/login" style={{ textDecoration: 'none' }}>
+            <button style={{...styles.primaryBtn, fontSize: '1.1rem'}} onMouseEnter={(e) => handleBtnHover(e, true)} onMouseLeave={(e) => handleBtnHover(e, false)} onClick={onGetStarted}>
+                Get Started Free <ArrowRight size={20} />
+            </button>
+        </Link>
       </section>
 
       {/* --- FEATURES SECTION --- */}
