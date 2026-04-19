@@ -16,3 +16,5 @@ langchain_huggingface
 langchain-openai
 alembic 
 psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
