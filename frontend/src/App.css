@@ -1,0 +1,23 @@
+
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080616;
+}
+::-webkit-scrollbar-thumb {
+  background: #1A1953;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2F2FE4;
+}
