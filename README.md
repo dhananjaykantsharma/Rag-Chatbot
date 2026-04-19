@@ -10,6 +10,25 @@ A Retrieval-Augmented Generation (RAG) chatbot that allows users to interact wit
 - **API Backend**: FastAPI-based backend for handling chat and ingestion requests
 - **Real-time Responses**: Generate responses based on retrieved document context
 
+## Architecture
+
+```mermaid
+graph TD
+    A[User] --> B[Frontend React App]
+    B --> C[Chat Interface]
+    C --> D[API Request to Backend]
+    D --> E[FastAPI Backend]
+    E --> F{Chat or Ingestion?}
+    F -->|Ingestion| G[Document Processing]
+    G --> H[ChromaDB Vector Storage]
+    F -->|Chat| I[Query Processing]
+    I --> J[Vector Search in ChromaDB]
+    J --> K[Retrieve Relevant Documents]
+    K --> L[Generate Response with LLM]
+    L --> M[Send Response to Frontend]
+    M --> N[Display in Chat Interface]
+```
+
 ## Tech Stack
 
 ### Backend
