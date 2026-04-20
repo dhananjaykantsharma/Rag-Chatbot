@@ -69,3 +69,7 @@ async def send_otp_email(email: str, otp: str):
     )
 
     await FastMail(conf).send_message(message=message)
+
+def check_otp_verified(user: User) -> bool:
+    """Check if the user's OTP is verified"""
+    return user.is_otp_verified == 1

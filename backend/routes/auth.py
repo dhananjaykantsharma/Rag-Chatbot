@@ -9,6 +9,7 @@ from utils.auth_utils import (
     create_user,
     create_access_token,
     send_otp_email,
+    check_otp_verified
 )
 from pydantic import BaseModel, EmailStr
 
@@ -20,6 +21,15 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class UserSignupResponse(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
+    is_otp_verified: bool
+
+    class Config:
+        from_attributes = True
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -37,7 +47,7 @@ async def signup(data: UserCreate, db: Session = Depends(get_db)):
 
         await send_otp_email(new_user.email, new_user.generated_otp)
 
-        return {"message": "User created successfully", "user_data": new_user}
+        return {"message": "User created successfully", "user_data": UserSignupResponse.from_orm(new_user)}
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
@@ -49,6 +59,12 @@ async def login(data: UserLogin, db: Session = Depends(get_db)):
     try:
         user = db.query(User).filter(User.email == data.email).first()
 
+        if not user or not check_otp_verified(user):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="OTP verification pending. Please verify your email."
+            )
+
         if not user or not verify_password(data.password, user.hashed_password):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
         
@@ -56,5 +72,24 @@ async def login(data: UserLogin, db: Session = Depends(get_db)):
 
         return {"access_token": access_token, "token_type": "bearer"}
 
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    
+@router.post("/verify-otp")
+async def verify_otp(email: EmailStr, otp: str, db: Session = Depends(get_db)):
+    """This endpoint verify otp and update user record if otp valid"""
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+        if user.generated_otp != otp:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP")
+        
+        user.is_otp_verified = 1
+        user.generated_otp = None
+        db.commit()
+        db.refresh(user)
+        return {"message": "OTP verified successfully"}
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
