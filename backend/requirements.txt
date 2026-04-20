@@ -12,9 +12,11 @@ pypdf
 langchain-text-splitters
 chromadb 
 langchain-chroma
-langchain_huggingface
 langchain-openai
 alembic 
 psycopg2-binary
+bcrypt==4.0.1
 passlib[bcrypt]
 python-jose[cryptography]
+pydantic[email]
+pyjwt

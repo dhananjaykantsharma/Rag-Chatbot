@@ -2,7 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User
-from utils.auth_utils import generate_password_hash, verify_password, check_existing_user
+from utils.auth_utils import (
+    generate_password_hash, 
+    verify_password, 
+    check_existing_user, 
+    create_user,
+    create_access_token
+)
 from pydantic import BaseModel, EmailStr
 
 class UserCreate(BaseModel):
@@ -10,6 +16,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -26,6 +35,23 @@ def signup(data: UserCreate, db: Session = Depends(get_db)):
         new_user = create_user(data, hashed_password, db)
 
         return {"message": "User created successfully", "user_data": new_user}
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.post("/login")
+def login(data: UserLogin, db: Session = Depends(get_db)):
+    """This endpoint verify user credentials and return access token if validated"""
+    try:
+        user = db.query(User).filter(User.email == data.email).first()
+
+        if not user or not verify_password(data.password, user.hashed_password):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        
+        access_token = create_access_token(data={"user_id": user.id, "email": user.email})
+
+        return {"access_token": access_token, "token_type": "bearer"}
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
