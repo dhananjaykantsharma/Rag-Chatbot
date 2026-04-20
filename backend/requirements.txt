@@ -20,3 +20,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 pydantic[email]
 pyjwt
+fastapi-mail

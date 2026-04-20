@@ -7,7 +7,8 @@ from utils.auth_utils import (
     verify_password, 
     check_existing_user, 
     create_user,
-    create_access_token
+    create_access_token,
+    send_otp_email,
 )
 from pydantic import BaseModel, EmailStr
 
@@ -23,7 +24,7 @@ class UserLogin(BaseModel):
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/signup")
-def signup(data: UserCreate, db: Session = Depends(get_db)):
+async def signup(data: UserCreate, db: Session = Depends(get_db)):
     """This endpoint check for existing user and if not exist create new user with hashed password"""
     try:
 
@@ -34,6 +35,8 @@ def signup(data: UserCreate, db: Session = Depends(get_db)):
 
         new_user = create_user(data, hashed_password, db)
 
+        await send_otp_email(new_user.email, new_user.generated_otp)
+
         return {"message": "User created successfully", "user_data": new_user}
 
     except Exception as e:
@@ -41,7 +44,7 @@ def signup(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(data: UserLogin, db: Session = Depends(get_db)):
+async def login(data: UserLogin, db: Session = Depends(get_db)):
     """This endpoint verify user credentials and return access token if validated"""
     try:
         user = db.query(User).filter(User.email == data.email).first()

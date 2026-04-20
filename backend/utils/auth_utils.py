@@ -4,11 +4,23 @@ import jwt
 from datetime import datetime, timedelta, timezone
 import os
 from dotenv import load_dotenv
+from random import randint
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
+
+conf = ConnectionConfig(
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+    MAIL_FROM=os.getenv("MAIL_FROM"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT")),
+    MAIL_SERVER="smtp.gmail.com",
+    MAIL_STARTTLS=True,
+    MAIL_SSL_TLS=False
+)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -23,11 +35,14 @@ def check_existing_user(email: str, db) -> bool:
     return user is not None
 
 def create_user(data, hashed_password, db):
+
+    otp = generate_otp()
     new_user = User(
         full_name=data.full_name,
         email=data.email,
         hashed_password=hashed_password,
-        is_otp_verified=0  
+        is_otp_verified=0 ,
+        generated_otp=otp
     )
     db.add(new_user)
     db.commit()
@@ -39,3 +54,18 @@ def create_access_token(data: dict, expires_delta: int = 30):
     expire_in = datetime.now(timezone.utc) + timedelta(minutes=expires_delta)
     to_encode.update({"exp": expire_in})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def generate_otp() -> str:
+    """Generate a 6 digit OTP"""
+    return str(randint(100000, 999999))
+
+async def send_otp_email(email: str, otp: str):
+    """Send the OTP to the user's email address using FastAPI-Mail"""
+    message = MessageSchema(
+        subject="Your OTP for Rag Chatbot",
+        recipients=[email],
+        body=f"Your OTP for Rag Chatbot is: {otp}",
+        subtype="plain"
+    )
+
+    await FastMail(conf).send_message(message=message)
