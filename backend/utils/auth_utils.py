@@ -6,12 +6,14 @@ import os
 from dotenv import load_dotenv
 from random import randint
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status
 
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
@@ -73,3 +75,19 @@ async def send_otp_email(email: str, otp: str):
 def check_otp_verified(user: User) -> bool:
     """Check if the user's OTP is verified"""
     return user.is_otp_verified == 1
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: int = payload.get("user_id")
+        email: str = payload.get("email")
+        if user_id is None or email is None:
+            raise credentials_exception
+        return {"user_id": user_id, "email": email}
+    except:
+        raise credentials_exception

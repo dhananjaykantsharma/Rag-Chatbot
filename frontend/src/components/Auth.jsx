@@ -16,43 +16,54 @@ const AuthForm = ({ type }) => {
   const navigate = useNavigate();
   const isLogin = type === 'login';
   const [error, setError] = useState("");
-  
-  const handleSubmit = async(e) => {
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Placeholder for authentication logic
-    setError(""); // Clear previous errors
+    setError("");
 
     const endpoint = isLogin ? '/auth/login' : '/auth/signup';
 
-    const payload = isLogin ? {
-      email: e.target[0].value,
-      password: e.target[1].value
-    } : {
-      full_name: e.target[0].value,
-      email: e.target[1].value,
-      password: e.target[2].value
-    };
-
     try {
-      const response = await api.post(endpoint, payload);
+      let response;
 
+      if (isLogin) {
+        // 1. Login ke liye Form Data banana zaroori hai (FastAPI OAuth2 requirement)
+        const formData = new URLSearchParams();
+        formData.append('username', e.target[0].value); // Email field
+        formData.append('password', e.target[1].value); // Password field
+
+        response = await api.post(endpoint, formData, {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        });
+      } else {
+        // 2. Signup ke liye normal JSON payload
+        const signupPayload = {
+          full_name: e.target[0].value,
+          email: e.target[1].value,
+          password: e.target[2].value
+        };
+        response = await api.post(endpoint, signupPayload);
+      }
+
+      // 3. Response handling
       if (response.status === 200) {
         if (!isLogin) {
-          console.log("sign up Auth Response:", response.data);
-          localStorage.setItem('userEmail', payload.email);
+          localStorage.setItem('userEmail', e.target[1].value);
           navigate('/verify-otp');
-          return;
+        } else {
+          // Token save karein (Backend se 'access_token' aur 'token_type' aata hai)
+          localStorage.setItem('access_token', response.data.access_token);
+          navigate('/chat');
         }
-        console.log("login Auth Response:", response.data);
-        localStorage.setItem('access_token', response.data.access_token);
-        navigate('/chat');
-        return;
       }
     } catch (err) {
-      setError("An error occurred. Please try again.");
-      
+      // Backend se aane wala error message display karein
+      const errorMsg = err.response?.data?.detail || "An error occurred. Please try again.";
+      setError(errorMsg);
+      console.error("Auth Error:", err.response?.data);
     }
-
   };
 
   return (

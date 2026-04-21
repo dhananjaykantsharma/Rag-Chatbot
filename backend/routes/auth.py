@@ -9,9 +9,11 @@ from utils.auth_utils import (
     create_user,
     create_access_token,
     send_otp_email,
-    check_otp_verified
+    check_otp_verified,
+    get_current_user
 )
 from pydantic import BaseModel, EmailStr
+from fastapi.security import OAuth2PasswordRequestForm
 
 class UserCreate(BaseModel):
     full_name: str
@@ -27,6 +29,13 @@ class UserSignupResponse(BaseModel):
     full_name: str
     email: EmailStr
     is_otp_verified: bool
+
+    class Config:
+        from_attributes = True
+
+class UserSchema(BaseModel):
+    user_id: str
+    email: EmailStr
 
     class Config:
         from_attributes = True
@@ -54,10 +63,10 @@ async def signup(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-async def login(data: UserLogin, db: Session = Depends(get_db)):
+async def login(data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """This endpoint verify user credentials and return access token if validated"""
     try:
-        user = db.query(User).filter(User.email == data.email).first()
+        user = db.query(User).filter(User.email == data.username).first()
 
         if not user or not check_otp_verified(user):
             raise HTTPException(
@@ -93,3 +102,9 @@ async def verify_otp(email: EmailStr, otp: str, db: Session = Depends(get_db)):
         return {"message": "OTP verified successfully"}
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    
+
+@router.get("/me")
+async def me(current_user: UserSchema = Depends(get_current_user)):
+    """This endpoint return current user details based on access token"""
+    return current_user
