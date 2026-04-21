@@ -45,7 +45,7 @@ const AuthForm = ({ type }) => {
         }
         console.log("login Auth Response:", response.data);
         localStorage.setItem('access_token', response.data.access_token);
-        navigate('/dashboard');
+        navigate('/chat');
         return;
       }
     } catch (err) {

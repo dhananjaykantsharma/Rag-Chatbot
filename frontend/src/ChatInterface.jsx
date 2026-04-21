@@ -61,10 +61,25 @@ const ChatInterface = () => {
           </div>
           <h2 style={{ margin: 0, fontSize: '1.4rem' }}>RAG Insight AI</h2>
         </div>
-        <div style={{ color: colors.textDim, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#00FF88' }}></div>
-          Backend Connected (Static Mode)
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        
+        <div style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '50%',
+          backgroundColor: colors.vibrantBlue,
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          border: `2px solid rgba(255,255,255,0.1)`,
+          fontWeight: 'bold',
+          color: 'white',
+          fontSize: '1.2rem',
+          boxShadow: '0 0 10px rgba(47, 47, 228, 0.4)'
+        }}>
+          D
         </div>
+      </div>
       </header>
 
       {/* --- CHAT AREA --- */}
