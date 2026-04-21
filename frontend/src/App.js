@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LandingPage from './LandingPage';
 import ChatInterface from './ChatInterface';
 import AuthForm from './components/Auth';
+import VerifyOTP from './components/VerifyOtp';
 import './App.css';
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         {/* Auth Routes */}
         <Route path="/login" element={<AuthForm type="login" />} />
         <Route path="/signup" element={<AuthForm type="signup" />} />
+        <Route path="/verify-otp" element={<VerifyOTP />} />
 
         {/* Chat Interface */}
         <Route path="/chat" element={<ChatInterface />} />

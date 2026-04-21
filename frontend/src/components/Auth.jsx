@@ -1,7 +1,8 @@
 // src/components/Auth.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
+import api from '../api';
 
 const colors = {
   deepDark: '#080616',
@@ -10,14 +11,48 @@ const colors = {
   textDim: '#A0A0C0'
 };
 
+
 const AuthForm = ({ type }) => {
   const navigate = useNavigate();
   const isLogin = type === 'login';
-
-  const handleSubmit = (e) => {
+  const [error, setError] = useState("");
+  
+  const handleSubmit = async(e) => {
     e.preventDefault();
-    // Yahan baad mein login logic aayega
-    navigate('/chat'); // Redirect to chat after "login"
+    // Placeholder for authentication logic
+    setError(""); // Clear previous errors
+
+    const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+
+    const payload = isLogin ? {
+      email: e.target[0].value,
+      password: e.target[1].value
+    } : {
+      full_name: e.target[0].value,
+      email: e.target[1].value,
+      password: e.target[2].value
+    };
+
+    try {
+      const response = await api.post(endpoint, payload);
+
+      if (response.status === 200) {
+        if (!isLogin) {
+          console.log("sign up Auth Response:", response.data);
+          localStorage.setItem('userEmail', payload.email);
+          navigate('/verify-otp');
+          return;
+        }
+        console.log("login Auth Response:", response.data);
+        localStorage.setItem('access_token', response.data.access_token);
+        navigate('/dashboard');
+        return;
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      
+    }
+
   };
 
   return (
