@@ -105,6 +105,9 @@ async def verify_otp(email: EmailStr, otp: str, db: Session = Depends(get_db)):
     
 
 @router.get("/me")
-async def me(current_user: UserSchema = Depends(get_current_user)):
+async def me(current_user: UserSchema = Depends(get_current_user), db: Session = Depends(get_db)):
     """This endpoint return current user details based on access token"""
-    return current_user
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return UserSignupResponse.from_orm(user)
