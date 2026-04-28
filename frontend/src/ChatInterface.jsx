@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, User, Send, Sparkles, Database } from 'lucide-react';
+import { Bot, User, Send, Sparkles, Database, X, Upload, FileText } from 'lucide-react';
 
 const colors = {
   deepDark: '#080616',    // Main Background
@@ -26,6 +26,9 @@ const ChatInterface = () => {
     }
   }, [messages]);
 
+  const [showModal, setShowModal] = useState(true);
+  const [selectedFile, setSelectedFile] = useState(null);
+
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -44,7 +47,44 @@ const ChatInterface = () => {
       color: colors.textWhite,
       fontFamily: 'Inter, sans-serif'
     }}>
-      
+
+      {showModal && (
+        <div style={styles.overlay}>
+          <div style={styles.modalCard}>
+            {/* Header */}
+            <div style={styles.modalHeader}>
+              <h3>Upload Data Source</h3>
+              <X style={{ cursor: 'pointer' }} onClick={() => setShowModal(false)} />
+            </div>
+
+            {/* Upload Area */}
+            <div style={styles.uploadBox}>
+              <input
+                type="file"
+                id="fileInput"
+                hidden
+                onChange={(e) => setSelectedFile(e.target.files[0])}
+              />
+              <label htmlFor="fileInput" style={styles.label}>
+                <Upload size={40} color={colors.vibrantBlue} />
+                <p>{selectedFile ? selectedFile.name : "Choose a PDF or TXT file"}</p>
+              </label>
+            </div>
+
+            {/* Action Button */}
+            <button
+              style={styles.uploadBtn}
+              onClick={() => {
+                // Yahan aap handleFileUpload function call karenge
+                setShowModal(false);
+              }}
+            >
+              Start Processing
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- HEADER --- */}
       <header style={{
         padding: '20px 40px',
@@ -62,24 +102,24 @@ const ChatInterface = () => {
           <h2 style={{ margin: 0, fontSize: '1.4rem' }}>RAG Insight AI</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          backgroundColor: colors.vibrantBlue,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          border: `2px solid rgba(255,255,255,0.1)`,
-          fontWeight: 'bold',
-          color: 'white',
-          fontSize: '1.2rem',
-          boxShadow: '0 0 10px rgba(47, 47, 228, 0.4)'
-        }}>
-          D
+
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: colors.vibrantBlue,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            border: `2px solid rgba(255,255,255,0.1)`,
+            fontWeight: 'bold',
+            color: 'white',
+            fontSize: '1.2rem',
+            boxShadow: '0 0 10px rgba(47, 47, 228, 0.4)'
+          }}>
+            D
+          </div>
         </div>
-      </div>
       </header>
 
       {/* --- CHAT AREA --- */}
@@ -99,8 +139,8 @@ const ChatInterface = () => {
             alignItems: 'flex-start',
             gap: '12px'
           }}>
-            {!msg.isUser && <div style={avatarStyle}><Bot size={18}/></div>}
-            
+            {!msg.isUser && <div style={avatarStyle}><Bot size={18} /></div>}
+
             <div style={{
               maxWidth: '75%',
               padding: '12px 18px',
@@ -114,7 +154,7 @@ const ChatInterface = () => {
               {msg.text}
             </div>
 
-            {msg.isUser && <div style={{...avatarStyle, backgroundColor: colors.vibrantBlue}}><User size={18}/></div>}
+            {msg.isUser && <div style={{ ...avatarStyle, backgroundColor: colors.vibrantBlue }}><User size={18} /></div>}
           </div>
         ))}
       </main>
@@ -163,8 +203,8 @@ const ChatInterface = () => {
             color: 'white',
             transition: 'transform 0.2s'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <Send size={20} />
           </button>
@@ -187,6 +227,44 @@ const avatarStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   border: `1px solid ${colors.vibrantBlue}66`
+};
+
+const styles = {
+  overlay: {
+    position: 'fixed',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)', // Dark transparent background
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2000,
+    backdropFilter: 'blur(5px)', // Premium blur effect
+  },
+  modalCard: {
+    backgroundColor: colors.navyBlue,
+    padding: '30px',
+    borderRadius: '20px',
+    width: '400px',
+    border: `1px solid ${colors.vibrantBlue}66`,
+    textAlign: 'center',
+  },
+  uploadBox: {
+    border: `2px dashed ${colors.vibrantBlue}44`,
+    borderRadius: '15px',
+    padding: '40px 20px',
+    margin: '20px 0',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  uploadBtn: {
+    width: '100%',
+    padding: '12px',
+    backgroundColor: colors.vibrantBlue,
+    color: 'white',
+    border: 'none',
+    borderRadius: '10px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+  }
 };
 
 export default ChatInterface;
