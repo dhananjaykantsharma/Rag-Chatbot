@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User
+from models import User, Datasource
 from utils.auth_utils import (
     generate_password_hash, 
     verify_password, 
@@ -14,6 +14,7 @@ from utils.auth_utils import (
 )
 from pydantic import BaseModel, EmailStr
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 
 class UserCreate(BaseModel):
     full_name: str
@@ -29,6 +30,15 @@ class UserSignupResponse(BaseModel):
     full_name: str
     email: EmailStr
     is_otp_verified: bool
+
+    class Config:
+        from_attributes = True
+
+class UserMeResponse(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
+    has_datasource: bool  
 
     class Config:
         from_attributes = True
@@ -104,10 +114,27 @@ async def verify_otp(email: EmailStr, otp: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     
 
-@router.get("/me")
+@router.get("/me", response_model=UserMeResponse)
 async def me(current_user: UserSchema = Depends(get_current_user), db: Session = Depends(get_db)):
-    """This endpoint return current user details based on access token"""
-    user = db.query(User).filter(User.id == current_user["user_id"]).first()
-    if not user:
+    """Single query using OUTER JOIN to check user and datasource existence"""
+    
+    result = db.query(
+        User, 
+        func.count(Datasource.id).label("ds_count")
+    ).outerjoin(Datasource, User.id == Datasource.user_id)\
+     .filter(User.id == current_user["user_id"])\
+     .group_by(User.id)\
+     .first()
+
+    if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return UserSignupResponse.from_orm(user)
+
+    user, ds_count = result
+
+    # Dictionary banayein jisme saari fields ho
+    return UserMeResponse(
+        id=user.id,
+        full_name=user.full_name,
+        email=user.email,
+        has_datasource=ds_count > 0
+    )
