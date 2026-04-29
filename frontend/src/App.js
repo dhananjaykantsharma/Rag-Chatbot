@@ -5,26 +5,36 @@ import LandingPage from './LandingPage';
 import ChatInterface from './ChatInterface';
 import AuthForm from './components/Auth';
 import VerifyOTP from './components/VerifyOtp';
+import { AuthProvider } from './context/AuthContext'; // 1. AuthProvider Import karein
+import ProtectedRoute from './components/ProtectedRoute'; // 2. ProtectedRoute Import karein
 import './App.css';
 
 function App() {
   return (
     <Router>
-      <Routes>
-        {/* Landing Page */}
-        <Route path="/" element={<LandingPage />} />
+      {/* 3. AuthProvider ko yahan wrap karein taaki har route ko user data mil sake */}
+      <AuthProvider>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<AuthForm type="login" />} />
+          <Route path="/signup" element={<AuthForm type="signup" />} />
+          <Route path="/verify-otp" element={<VerifyOTP />} />
 
-        {/* Auth Routes */}
-        <Route path="/login" element={<AuthForm type="login" />} />
-        <Route path="/signup" element={<AuthForm type="signup" />} />
-        <Route path="/verify-otp" element={<VerifyOTP />} />
+          {/* 4. Protected Route - Sirf login users ke liye */}
+          <Route 
+            path="/chat" 
+            element={
+              <ProtectedRoute>
+                <ChatInterface />
+              </ProtectedRoute>
+            } 
+          />
 
-        {/* Chat Interface */}
-        <Route path="/chat" element={<ChatInterface />} />
-
-        {/* 404 Redirect - Agar galat URL ho toh home par bhej do */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+          {/* 404 Redirect */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </AuthProvider>
     </Router>
   );
 }

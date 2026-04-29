@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import api from '../api';
+import { useAuth } from '../context/AuthContext'; // useAuth hook se checkAuth access karein
 
 const colors = {
   deepDark: '#080616',
@@ -16,6 +17,7 @@ const AuthForm = ({ type }) => {
   const navigate = useNavigate();
   const isLogin = type === 'login';
   const [error, setError] = useState("");
+  const { checkAuth } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,7 +56,8 @@ const AuthForm = ({ type }) => {
           navigate('/verify-otp');
         } else {
           // Token save karein (Backend se 'access_token' aur 'token_type' aata hai)
-          localStorage.setItem('access_token', response.data.access_token);
+          localStorage.setItem('token', response.data.access_token);
+          await checkAuth();
           navigate('/chat');
         }
       }
