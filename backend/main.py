@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from routes.ingestion import router as ingestion_router
 from routes.chat import router as chat_router
 from routes.auth import router as auth_router
+from routes.datasource import router as datasource_router
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -28,3 +29,4 @@ def health_check():
 app.include_router(ingestion_router)
 app.include_router(chat_router)
 app.include_router(auth_router)
+app.include_router(datasource_router)
