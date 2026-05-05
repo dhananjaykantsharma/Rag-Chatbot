@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from numpy import rint
 from sqlalchemy.orm import Session
 from database import get_db
 from utils.auth_utils import get_current_user
 from supabase import create_client, Client
 from models import Datasource
+import urllib.parse
 import uuid
 import os
 import dotenv
@@ -98,7 +100,56 @@ async def list_datasources(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
-    datasources = await (db.query(Datasource).filter(Datasource.user_id == user_id).all())
+    datasources =  db.query(Datasource).filter(Datasource.user_id == user_id).all()
     if datasources is None:
         raise HTTPException(status_code=404, detail="No datasources found for user.")
     return datasources
+
+@router.delete("/delete", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_datasource(
+    datasource_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+
+    datasource = (
+        db.query(Datasource)
+        .filter(Datasource.id == datasource_id, Datasource.user_id == user_id)
+        .first()
+    )
+
+    if not datasource:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Datasource not found."
+        )
+
+    try:
+        full_url = datasource.file_path  # This is your https://... URL
+        print(f"[DEBUG] Full URL: {full_url}")
+
+        # We look for the bucket name in the URL and take everything after it
+        path_in_bucket = full_url.split(f"{SUPABASE_BUCKET}/")[-1]
+    
+        decoded_path = urllib.parse.unquote(path_in_bucket)
+    
+        print(f"[DEBUG] Attempting to delete: {decoded_path}")
+
+        # 3. Delete from Supabase using the FULL path
+        storage_response = supabase.storage.from_(SUPABASE_BUCKET).remove([decoded_path])
+    
+        print(f"[DEBUG] Supabase response: {storage_response}")
+
+        if not storage_response:
+            # If response is empty, it means the path was still wrong
+            raise HTTPException(status_code=404, detail=f"File not found at {decoded_path}")
+
+        # 4. Success! Now clean up the DB
+        db.delete(datasource)
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        print(f"[ERROR] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
