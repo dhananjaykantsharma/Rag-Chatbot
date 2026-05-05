@@ -91,3 +91,14 @@ async def upload_datasource(
         raise HTTPException(status_code=500, detail="File uploaded but database record failed.")
 
     return {"message": "Success", "url": file_url}
+
+@router.get("/list-datasources")
+async def list_datasources(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    datasources = await (db.query(Datasource).filter(Datasource.user_id == user_id).all())
+    if datasources is None:
+        raise HTTPException(status_code=404, detail="No datasources found for user.")
+    return datasources
