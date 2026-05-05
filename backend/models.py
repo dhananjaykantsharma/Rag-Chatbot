@@ -32,6 +32,7 @@ class Datasource(Base):
     file_type = Column(String, nullable=False)
     file_size = Column(Integer, nullable=False)
     file_path = Column(String, nullable=False)
+    status = Column(String, default="to_ingest")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
