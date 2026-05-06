@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, User, Send, Sparkles, Database, X, Upload, FileText } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
 
 const colors = {
   deepDark: '#080616',    // Main Background
@@ -18,13 +19,22 @@ const ChatInterface = () => {
   ]);
   const [input, setInput] = useState("");
   const scrollRef = useRef(null);
-
+  const { user } = useAuth();
+  console.log("Current User Data:", user);
   // Auto scroll to bottom
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (user && user.has_datasource === false) {
+      setShowModal(true);
+    } else {
+      setShowModal(false);
+    }
+  }, [user]);
 
   const [showModal, setShowModal] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -115,9 +125,14 @@ const ChatInterface = () => {
             fontWeight: 'bold',
             color: 'white',
             fontSize: '1.2rem',
-            boxShadow: '0 0 10px rgba(47, 47, 228, 0.4)'
+            boxShadow: '0 0 10px rgba(47, 47, 228, 0.4)',
+            textTransform: 'uppercase'
           }}>
-            D
+            {user?.full_name ? (
+              user.full_name.charAt(0)
+            ) : (
+              <User size={20} strokeWidth={2.5} />
+            )}
           </div>
         </div>
       </header>
