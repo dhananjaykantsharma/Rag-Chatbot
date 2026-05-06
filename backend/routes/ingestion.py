@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from fastapi import HTTPException
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from supabase import create_client, Client
 from database import get_db
@@ -14,6 +13,7 @@ import os
 import httpx
 import urllib.parse
 from dotenv import load_dotenv
+from embeddings import get_embeddings
 
 load_dotenv()
 
@@ -24,11 +24,6 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "rag-chatbot")  
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY, )
-
-embeddings  = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={ "device": "cpu" }
-)
 
 @router.post("/ingestion")
 async def ingestion(
@@ -114,6 +109,7 @@ async def ingestion(
 
     if all_chunks:
         try:
+            embeddings = get_embeddings()
             collection_name = f"user_{user_id}"
             Chroma.from_documents(
                 documents=all_chunks,

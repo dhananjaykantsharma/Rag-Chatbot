@@ -1,11 +1,12 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint, ChatHuggingFace
+from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from embeddings import get_embeddings
 import os
 import dotenv
 
@@ -15,11 +16,6 @@ hugging_face_api_key = os.getenv("HUGGING_FACE_API_KEY")
 
 class ChatRequest(BaseModel):
     question: str
-
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": "cpu"}
-)
 
 # Step 1: Create the endpoint with task="conversational" to match
 # what featherless-ai supports for this model
@@ -40,6 +36,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 @router.post("/ask")
 def chat(request: ChatRequest):
+    embeddings = get_embeddings()
     vectors_db = Chroma(
         persist_directory="./chroma_db",
         embedding_function=embeddings,

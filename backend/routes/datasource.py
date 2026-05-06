@@ -6,7 +6,7 @@ from utils.auth_utils import get_current_user
 from supabase import create_client, Client
 from models import Datasource
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from embeddings import get_embeddings
 import urllib.parse
 import uuid
 import os
@@ -32,9 +32,6 @@ ALLOWED_CONTENT_TYPES = {
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 router = APIRouter(prefix="/datasource", tags=["Datasource"])
-
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
 
 @router.post("/upload")
 async def upload_datasource(
@@ -128,6 +125,7 @@ async def delete_datasource(
 
     try:
         # --- NEW: VECTOR DB SE CHUNKS DELETE KARNA ---
+        embeddings = get_embeddings()
         collection_name = f"user_{user_id}"
         vector_db = Chroma(
             persist_directory="./chroma_db",

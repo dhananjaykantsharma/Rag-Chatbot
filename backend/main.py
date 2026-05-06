@@ -3,10 +3,17 @@ from routes.ingestion import router as ingestion_router
 from routes.chat import router as chat_router
 from routes.auth import router as auth_router
 from routes.datasource import router as datasource_router
+from embeddings import init_embeddings
 from fastapi.middleware.cors import CORSMiddleware
 
 
 app = FastAPI()
+
+
+@app.on_event("startup")
+def startup_event():
+    init_embeddings()
+    print("[startup] embeddings initialized")
 
 origins = [
     "http://localhost:3000",  # React frontend
