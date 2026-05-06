@@ -5,6 +5,8 @@ from database import get_db
 from utils.auth_utils import get_current_user
 from supabase import create_client, Client
 from models import Datasource
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
 import urllib.parse
 import uuid
 import os
@@ -30,6 +32,8 @@ ALLOWED_CONTENT_TYPES = {
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 router = APIRouter(prefix="/datasource", tags=["Datasource"])
+
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 @router.post("/upload")
@@ -120,32 +124,31 @@ async def delete_datasource(
     )
 
     if not datasource:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="Datasource not found."
-        )
+        raise HTTPException(status_code=404, detail="Datasource not found.")
 
     try:
-        full_url = datasource.file_path  # This is your https://... URL
-        print(f"[DEBUG] Full URL: {full_url}")
+        # --- NEW: VECTOR DB SE CHUNKS DELETE KARNA ---
+        collection_name = f"user_{user_id}"
+        vector_db = Chroma(
+            persist_directory="./chroma_db",
+            embedding_function=embeddings,
+            collection_name=collection_name
+        )
+        
+        # Metadata filter use karke delete karein
+        # Note: Ingestion mein humne datasource_id ko string banaya tha: str(file_id)
+        vector_db.delete(where={"datasource_id": str(datasource_id)})
+        print(f"[DEBUG] Chunks deleted for datasource_id: {datasource_id}")
+        # ---------------------------------------------
 
-        # We look for the bucket name in the URL and take everything after it
+        # 2. Supabase Storage se file delete karna
+        full_url = datasource.file_path 
         path_in_bucket = full_url.split(f"{SUPABASE_BUCKET}/")[-1]
-    
         decoded_path = urllib.parse.unquote(path_in_bucket)
-    
-        print(f"[DEBUG] Attempting to delete: {decoded_path}")
-
-        # 3. Delete from Supabase using the FULL path
+        
         storage_response = supabase.storage.from_(SUPABASE_BUCKET).remove([decoded_path])
-    
-        print(f"[DEBUG] Supabase response: {storage_response}")
 
-        if not storage_response:
-            # If response is empty, it means the path was still wrong
-            raise HTTPException(status_code=404, detail=f"File not found at {decoded_path}")
-
-        # 4. Success! Now clean up the DB
+        # 3. SQL Database se record delete karna
         db.delete(datasource)
         db.commit()
 
