@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from embeddings import get_embeddings
+from utils.auth_utils import get_current_user
 import os
 import dotenv
 
@@ -35,39 +36,49 @@ def format_docs(docs):
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 @router.post("/ask")
-def chat(request: ChatRequest):
-    embeddings = get_embeddings()
-    vectors_db = Chroma(
-        persist_directory="./chroma_db",
-        embedding_function=embeddings,
-        collection_name="documents"
-    )
+def chat(
+    request: ChatRequest, 
+    current_user: dict = Depends(get_current_user)
+):
+    try:
+        user_id = current_user["user_id"]
+        embeddings = get_embeddings()
+        collection_name = f"user_{user_id}"
+        vectors_db = Chroma(
+            persist_directory="./chroma_db",
+            embedding_function=embeddings,
+            collection_name=collection_name
+        )
 
-    retriever = vectors_db.as_retriever(
-        search_kwargs={"k": 3}
-    )
+        retriever = vectors_db.as_retriever(
+            search_kwargs={"k": 3}
+        )
 
-    # Step 3: Use ChatPromptTemplate (not PromptTemplate) since
-    # ChatHuggingFace expects structured messages, not raw strings
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", (
-            "You are a helpful assistant. Use the following context to answer the question. "
-            "If the answer is not in the context, say you don't know.\n\n"
-            "Context: {context}"
-        )),
-        ("human", "{question}"),
-    ])
+        # Step 3: Use ChatPromptTemplate (not PromptTemplate) since
+        # ChatHuggingFace expects structured messages, not raw strings
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", (
+                "You are a helpful assistant. Use the following context to answer the question. "
+                "If the answer is not in the context, say you don't know.\n\n"
+                "Context: {context}"
+            )),
+            ("human", "{question}"),
+        ])
 
-    rag_chain = (
-        {
-            "context": retriever | format_docs,
-            "question": RunnablePassthrough(),
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+        rag_chain = (
+            {
+                "context": retriever | format_docs,
+                "question": RunnablePassthrough(),
+            }
+            | prompt
+            | llm
+            | StrOutputParser()
+        )
 
-    answer = rag_chain.invoke(request.question)
+        answer = rag_chain.invoke(request.question)
 
-    return {"answer": answer}
+        return {"answer": answer}
+    
+    except Exception as e:
+        print(f"Error in chat endpoint: {e}")
+        return {"error": "An error occurred while processing your request."}
