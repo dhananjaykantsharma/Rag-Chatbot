@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
@@ -23,7 +24,8 @@ class ChatRequest(BaseModel):
 llm = ChatOpenAI(
     model="gpt-4o-mini", 
     temperature=0.1,
-    api_key=os.getenv("OPENAI_API_KEY")
+    api_key=os.getenv("OPENAI_API_KEY"),
+    streaming=True
 )
 
 # Step 2: Wrap it with ChatHuggingFace so LangChain treats it as
@@ -32,6 +34,15 @@ llm = ChatOpenAI(
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
+
+async def generate_answer(chunks):
+    try:
+        async for chunk in chunks:
+            yield chunk
+    except Exception as e:
+        print(f"Error generating answer: {e}")
+        yield "An error occurred while generating the answer."
+
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -75,9 +86,12 @@ def chat(
             | StrOutputParser()
         )
 
-        answer = rag_chain.invoke(request.question)
+        chunks = rag_chain.astream(request.question)
 
-        return {"answer": answer}
+        return StreamingResponse(
+            generate_answer(chunks),
+            media_type="text/plain"
+        )
     
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
