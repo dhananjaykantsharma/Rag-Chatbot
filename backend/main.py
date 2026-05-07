@@ -33,7 +33,7 @@ def health_check():
     return {"message": "RAG Chatbot API is running!"}
 
 
-app.include_router(ingestion_router)
-app.include_router(chat_router)
 app.include_router(auth_router)
 app.include_router(datasource_router)
+app.include_router(ingestion_router)
+app.include_router(chat_router)
