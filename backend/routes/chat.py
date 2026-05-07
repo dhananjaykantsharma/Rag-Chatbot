@@ -9,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from embeddings import get_embeddings
 from utils.auth_utils import get_current_user
+import asyncio
 import os
 import dotenv
 
@@ -39,6 +40,7 @@ async def generate_answer(chunks):
     try:
         async for chunk in chunks:
             yield chunk
+            await asyncio.sleep(0.05)
     except Exception as e:
         print(f"Error generating answer: {e}")
         yield "An error occurred while generating the answer."
