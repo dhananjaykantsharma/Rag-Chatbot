@@ -2,14 +2,15 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from embeddings import get_embeddings
 from utils.auth_utils import get_current_user
+from utils.redis_util import get_chat_history, add_message_to_history
 from models import ChatHistory
+from operator import itemgetter
 from database import SessionLocal
 import asyncio
 import os
@@ -35,19 +36,29 @@ llm = ChatOpenAI(
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-async def generate_answer(chunks, chat_id):
-    # Streaming ke sath sath hum answer build karenge
+async def generate_answer(chunks, chat_id, user_id, question):
     full_answer = ""
     db = SessionLocal()
     try:
         async for chunk in chunks:
-            full_answer += chunk
-            yield chunk
-            # Thoda sleep taaki frontend par "typing" effect dikhe
-            await asyncio.sleep(0.02) 
+            # Chunk ko string mein convert karne ka sabse safe tarika
+            if isinstance(chunk, dict):
+                # Agar chunk dictionary hai, toh usme se text nikalne ki koshish karein
+                content = chunk.get("content", "") or chunk.get("text", "") or str(chunk)
+            elif hasattr(chunk, "content"):
+                content = chunk.content # AIMessageChunk case
+            else:
+                content = str(chunk)
 
-        # --- Success Case ---
-        # Jab loop successfully khatam ho jaye
+            if content:
+                full_answer += content
+                yield content
+                await asyncio.sleep(0.01)
+
+        # Success: Redis and DB storage
+        add_message_to_history(user_id, "human", question)
+        add_message_to_history(user_id, "ai", full_answer)
+
         chat_entry = db.query(ChatHistory).filter(ChatHistory.id == chat_id).first()
         if chat_entry:
             chat_entry.answer = full_answer
@@ -55,18 +66,9 @@ async def generate_answer(chunks, chat_id):
             db.commit()
 
     except Exception as e:
-        # --- Fail Case ---
-        print(f"Streaming Error: {e}")
-        chat_entry = db.query(ChatHistory).filter(ChatHistory.id == chat_id).first()
-        if chat_entry:
-            chat_entry.answer = "An error occurred while generating the answer."
-            chat_entry.status = "error"
-            db.commit()
-        yield "\n[Error: Connection Interrupted]"
-        
-    finally:
-        db.close()
-
+        print(f"Streaming Error inside generator: {e}")
+        # Error handling code...
+        yield f"\n[Error: {str(e)}]"
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -78,6 +80,9 @@ async def chat(
     db = SessionLocal()
     try:
         user_id = current_user["user_id"]
+
+        history = get_chat_history(user_id)
+        print(f"Chat history for user {user_id}: {history}")
         
         # 1. Initial entry (Status: in_progress)
         chat_history = ChatHistory(
@@ -102,22 +107,33 @@ async def chat(
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a helpful assistant. Context: {context}"),
+            MessagesPlaceholder(variable_name="history"),
             ("human", "{question}"),
         ])
 
+        print("prompt:", prompt)
+
         rag_chain = (
-            {"context": retriever | format_docs, "question": RunnablePassthrough()}
+            {
+                "context": retriever | format_docs, 
+                "question": itemgetter("question"),
+                "history": lambda x: history
+            }
             | prompt
             | llm
             | StrOutputParser()
         )
 
         # 3. Stream start karein
-        chunks = rag_chain.astream(request.question)
+        chunks = rag_chain.astream(
+            {
+                "question": request.question,
+            }
+        )
 
         # 4. Response return karein, DB update generator ke andar hoga
         return StreamingResponse(
-            generate_answer(chunks, chat_id),
+            generate_answer(chunks, chat_id, user_id, request.question),
             media_type="text/plain"
         )
 
