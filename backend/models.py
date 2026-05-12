@@ -38,3 +38,14 @@ class Datasource(Base):
 
     # Back relationship to User
     owner = relationship("User", back_populates="datasources")
+
+
+class ChatHistory(Base):
+    __tablename__ = "chat_history"
+
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    question = Column(String, nullable=False)
+    answer = Column(String, nullable=False)
+    status = Column(String, default="completed")
+    created_at = Column(DateTime, default=datetime.utcnow)
