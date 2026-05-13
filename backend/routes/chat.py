@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
-from langchain_core.messages import HumanMessage, AIMessage  # Added for history fix
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from embeddings import get_embeddings
 from utils.auth_utils import get_current_user
 from utils.redis_util import get_chat_history, add_message_to_history
@@ -33,21 +33,39 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 # FIX: Converts Redis history (dicts/tuples) into LangChain Message Objects
+import json # Ensure this is imported at the top
+
 def map_history(history_list):
     messages = []
     for msg in history_list:
-        # Check if msg is dict or tuple (depends on your Redis util)
-        if isinstance(msg, dict):
-            role = msg.get("role")
-            content = msg.get("content")
-        else:
-            role, content = msg # Assuming (role, content) tuple
+        # 1. AGAR MESSAGE PEHLE SE HI LANGCHAIN OBJECT HAI (Fix for your error)
+        if isinstance(msg, BaseMessage):
+            messages.append(msg)
+            continue
+
+        # 2. AGAR MESSAGE DICTIONARY HAI
+        try:
+            if isinstance(msg, str):
+                data = json.loads(msg)
+            elif isinstance(msg, dict):
+                data = msg
+            else:
+                print(f"Unknown message type: {type(msg)}")
+                continue
             
-        if role in ["human", "user"]:
-            messages.append(HumanMessage(content=content))
-        elif role in ["ai", "assistant"]:
-            messages.append(AIMessage(content=content))
+            role = data.get("role")
+            content = data.get("content")
+            
+            if role in ["human", "user"]:
+                messages.append(HumanMessage(content=content))
+            elif role in ["ai", "assistant"]:
+                messages.append(AIMessage(content=content))
+        except Exception as e:
+            print(f"Error parsing history message: {e}")
+            continue
+            
     return messages
+
 
 async def generate_answer(chunks, chat_id, user_id, question):
     full_answer = ""
