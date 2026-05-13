@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
+from langchain_core.messages import HumanMessage, AIMessage  # Added for history fix
 from embeddings import get_embeddings
 from utils.auth_utils import get_current_user
 from utils.redis_util import get_chat_history, add_message_to_history
@@ -18,13 +19,9 @@ import dotenv
 
 dotenv.load_dotenv()
 
-hugging_face_api_key = os.getenv("HUGGING_FACE_API_KEY")
-
 class ChatRequest(BaseModel):
     question: str
 
-# Step 1: Create the endpoint with task="conversational" to match
-# what featherless-ai supports for this model
 llm = ChatOpenAI(
     model="gpt-4o-mini", 
     temperature=0.1,
@@ -32,24 +29,32 @@ llm = ChatOpenAI(
     streaming=True
 )
 
-
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
+
+# FIX: Converts Redis history (dicts/tuples) into LangChain Message Objects
+def map_history(history_list):
+    messages = []
+    for msg in history_list:
+        # Check if msg is dict or tuple (depends on your Redis util)
+        if isinstance(msg, dict):
+            role = msg.get("role")
+            content = msg.get("content")
+        else:
+            role, content = msg # Assuming (role, content) tuple
+            
+        if role in ["human", "user"]:
+            messages.append(HumanMessage(content=content))
+        elif role in ["ai", "assistant"]:
+            messages.append(AIMessage(content=content))
+    return messages
 
 async def generate_answer(chunks, chat_id, user_id, question):
     full_answer = ""
     db = SessionLocal()
     try:
-        async for chunk in chunks:
-            # Chunk ko string mein convert karne ka sabse safe tarika
-            if isinstance(chunk, dict):
-                # Agar chunk dictionary hai, toh usme se text nikalne ki koshish karein
-                content = chunk.get("content", "") or chunk.get("text", "") or str(chunk)
-            elif hasattr(chunk, "content"):
-                content = chunk.content # AIMessageChunk case
-            else:
-                content = str(chunk)
-
+        async for content in chunks:
+            # Note: StrOutputParser makes 'content' a direct string
             if content:
                 full_answer += content
                 yield content
@@ -67,8 +72,9 @@ async def generate_answer(chunks, chat_id, user_id, question):
 
     except Exception as e:
         print(f"Streaming Error inside generator: {e}")
-        # Error handling code...
         yield f"\n[Error: {str(e)}]"
+    finally:
+        db.close()
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -80,11 +86,9 @@ async def chat(
     db = SessionLocal()
     try:
         user_id = current_user["user_id"]
-
         history = get_chat_history(user_id)
-        print(f"Chat history for user {user_id}: {history}")
         
-        # 1. Initial entry (Status: in_progress)
+        # 1. Initial entry
         chat_history = ChatHistory(
             user_id=user_id,
             question=request.question,
@@ -94,9 +98,9 @@ async def chat(
         db.add(chat_history)
         db.commit()
         db.refresh(chat_history)
-        chat_id = chat_history.id # Unique ID save karli
+        chat_id = chat_history.id
         
-        # 2. Vector DB & Chain setup (Existing logic)
+        # 2. Vector DB & Chain setup
         embeddings = get_embeddings()
         vectors_db = Chroma(
             persist_directory="./chroma_db",
@@ -111,27 +115,22 @@ async def chat(
             ("human", "{question}"),
         ])
 
-        print("prompt:", prompt)
-
+        # FIX: Added itemgetter for retriever and history mapping
         rag_chain = (
             {
-                "context": retriever | format_docs, 
+                "context": itemgetter("question") | retriever | format_docs, 
                 "question": itemgetter("question"),
-                "history": lambda x: history
+                "history": lambda x: map_history(history)
             }
             | prompt
             | llm
             | StrOutputParser()
         )
 
-        # 3. Stream start karein
-        chunks = rag_chain.astream(
-            {
-                "question": request.question,
-            }
-        )
+        # 3. Stream start
+        chunks = rag_chain.astream({"question": request.question})
 
-        # 4. Response return karein, DB update generator ke andar hoga
+        # 4. Response return
         return StreamingResponse(
             generate_answer(chunks, chat_id, user_id, request.question),
             media_type="text/plain"
@@ -139,6 +138,6 @@ async def chat(
 
     except Exception as e:
         print(f"Setup Error: {e}")
-        return {"error": "Could not initiate chat."}
+        return {"error": f"Could not initiate chat: {str(e)}"}
     finally:
         db.close()
