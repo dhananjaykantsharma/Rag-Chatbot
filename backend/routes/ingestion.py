@@ -89,6 +89,7 @@ async def ingestion(
             for doc in documents:
                 doc.metadata["user_id"] = user_id
                 doc.metadata["datasource_id"] = str(file_id) # ID track karne ke liye
+                doc.metadata["file_name"] = ds.file_name
 
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=1000, 

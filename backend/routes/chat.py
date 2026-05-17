@@ -1,19 +1,24 @@
+import os
+from operator import itemgetter
+import json
+import dotenv
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableLambda
+
 from embeddings import get_embeddings
 from utils.auth_utils import get_current_user
 from utils.redis_util import get_chat_history
 from utils.chat_utils import map_history, generate_answer
 from models import ChatHistory
-from operator import itemgetter
 from database import SessionLocal
-import os
-import dotenv
 
 dotenv.load_dotenv()
 
@@ -117,7 +122,7 @@ async def chat(
 
         print("Standalone question:", standalone_question)
 
-        # 4. Vector DB setup
+        # 4. Vector DB setup & Single Retrieval Fetch
         embeddings = get_embeddings()
 
         vectors_db = Chroma(
@@ -129,6 +134,18 @@ async def chat(
         retriever = vectors_db.as_retriever(
             search_kwargs={"k": 3}
         )
+        
+        # Fetch the relevant documents from Chroma once
+        docs = await retriever.ainvoke(standalone_question)
+        
+        # Safely compile the citations list
+        citations = []
+        for i, doc in enumerate(docs):
+            citations.append({
+                "source_index": i + 1,
+                "file_name": doc.metadata.get("file_name", "Unknown"),
+                "snippet": doc.page_content[:200] + "..." if len(doc.page_content) > 200 else doc.page_content
+            })
 
         # 5. Final answer prompt
         answer_prompt = ChatPromptTemplate.from_messages([
@@ -152,10 +169,11 @@ async def chat(
 
         print("Chat chain setup complete. Starting streaming response...")
 
-        # 6. Final RAG chain
+        # 6. Final RAG chain (Receives pre-fetched 'docs')
         rag_chain = (
             {
-                "context": itemgetter("standalone_question") | retriever | format_docs,
+                # We use RunnableLambda to make format_docs compatible with the | operator
+                "context": itemgetter("docs") | RunnableLambda(format_docs),
                 "question": itemgetter("question"),
                 "history": itemgetter("history")
             }
@@ -164,22 +182,31 @@ async def chat(
             | StrOutputParser()
         )
 
-        # 7. Start streaming
+        # 7. Start streaming chunks from OpenAI
         chunks = rag_chain.astream({
-            "standalone_question": standalone_question,
+            "docs": docs,
             "question": request.question,
             "history": formatted_history
         })
 
-        # 8. Return streaming response
-        return StreamingResponse(
-            generate_answer(
+        # 8. Define the wrapper to stream citations first, then words
+        async def stream_with_citations_wrapper():
+            # Packet 1: Send citations structured as a single line JSON string
+            yield json.dumps({"type": "citations", "data": citations}) + "\n"
+            
+            # Packet 2+: Stream the answer tokens as they arrive
+            async for chunk in generate_answer(
                 chunks,
                 chat_id,
                 user_id,
                 request.question
-            ),
-            media_type="text/plain"
+            ):
+                yield json.dumps({"type": "text", "data": chunk}) + "\n"
+
+        # Return streaming response with newline-delimited JSON media type
+        return StreamingResponse(
+            stream_with_citations_wrapper(),
+            media_type="application/x-ndjson"
         )
 
     except Exception as e:
