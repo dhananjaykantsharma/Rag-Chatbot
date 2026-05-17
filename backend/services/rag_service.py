@@ -13,6 +13,8 @@ from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda
+from langchain_community.document_compressors import FlashrankRerank
+from langchain_classic.retrievers import ContextualCompressionRetriever
 
 from embeddings import get_embeddings
 from utils.llm_config import (
@@ -79,8 +81,15 @@ async def retrieve_documents(question: str, user_id: int) -> list:
         search_kwargs={"k": RAGConfig.RETRIEVER_SEARCH_K}
     )
     
-    docs = await retriever.ainvoke(question)
+    compressor = FlashrankRerank()
     
+    compression_retriever = ContextualCompressionRetriever(
+        base_compressor=compressor,
+        base_retriever=retriever
+    )
+    
+    docs = await compression_retriever.ainvoke(question)
+    print(f"Retrieved {len(docs)} documents for question: {question}")
     return docs
 
 

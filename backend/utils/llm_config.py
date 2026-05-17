@@ -67,7 +67,7 @@ class RAGConfig:
     """Configuration for RAG operations"""
     
     VECTOR_DB_PERSIST_DIR = "./chroma_db"
-    RETRIEVER_SEARCH_K = 3
+    RETRIEVER_SEARCH_K = 10
     MAX_CHAT_HISTORY_LIMIT = 10
     CITATION_SNIPPET_LENGTH = 200
 
