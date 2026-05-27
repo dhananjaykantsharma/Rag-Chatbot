@@ -4,3 +4,4 @@ venv/
 chroma_db/
 node_modules/
 alembic.ini
+.vscode/
